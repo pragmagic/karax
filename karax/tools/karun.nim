@@ -1,7 +1,4 @@
-
-import os, strutils, browsers,times, tables 
-import parseopt
-import threadpool
+import std / [os, strutils, browsers, times, tables, parseopt, threadpool]
 import static_server
 
 const
@@ -10,12 +7,14 @@ const
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 """
 
-const html = """
+  html = """
 <!DOCTYPE html>
 <html>
 <head>
-  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <meta charset="UTF-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
   <title>$1</title>
+  <link href="styles.css" rel="stylesheet" type="text/css">
   $2
 </head>
 <body id="body" class="site">
@@ -25,12 +24,13 @@ $3
 </body>
 </html>
 """
-const websocket = """
+
+  websocket = """
 <script type="text/javascript">
 var ws = new WebSocket("ws://localhost:8080/ws");
 
-ws.onopen = function(evt) { 
-  console.log("Connection open ..."); 
+ws.onopen = function(evt) {
+  console.log("Connection open ...");
   ws.send("Hello WebSockets!");
 };
 
@@ -43,7 +43,7 @@ ws.onmessage = function(evt) {
 
 ws.onclose = function(evt) {
   console.log("Connection closed.");
-};      
+};
 </script>
 """
 
@@ -63,7 +63,7 @@ proc build(rest: string, selectedCss: string, run: bool, watch: bool) =
   writeFile(dest, html % ["app", selectedCss, script])
   if run: openDefaultBrowser("http://localhost:8080")
 
-proc watchBuild(filePath: string, selectedCss: string, rest: string) {.thread.} = 
+proc watchBuild(filePath: string, selectedCss: string, rest: string) {.thread.} =
   var files: Table[string, Time] = {"path": getLastModificationTime(".")}.toTable
   while true:
     sleep(300)
@@ -71,7 +71,7 @@ proc watchBuild(filePath: string, selectedCss: string, rest: string) {.thread.} 
       if ".git" in path:
         continue
       var (_, _, ext) = splitFile(path)
-      if ext in [".scss",".sass",".less",".styl",".pcss",".postcss"]:
+      if ext in [".scss", ".sass", ".less", ".styl", ".pcss", ".postcss"]:
         continue
       if files.hasKey(path):
         if files[path] != getLastModificationTime(path):
@@ -79,11 +79,11 @@ proc watchBuild(filePath: string, selectedCss: string, rest: string) {.thread.} 
           build(rest,selectedCss, false, true)
           files[path] = getLastModificationTime(path)
       else:
-        if absolutePath(path) in [absolutePath("app" & ".js"),absolutePath("app" & ".html")]:
+        if absolutePath(path) in [absolutePath("app" & ".js"), absolutePath("app" & ".html")]:
           continue
         files[path] = getLastModificationTime(path)
 
-proc serve(){.thread.} =
+proc serve() {.thread.} =
   serveStatic()
 
 proc main =

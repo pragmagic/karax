@@ -1,7 +1,7 @@
 ## Raw DOM manipulation. No DOM diff'ing, no cry.
 
-import macros, tables
-from strutils import startsWith, toLowerAscii, toUpperAscii
+import std / [macros, tables, dom]
+from std / strutils import startsWith, toLowerAscii
 
 when defined(js):
   type kstring* = cstring
@@ -16,7 +16,7 @@ type
     script, noscript,
     body, section, nav, article, aside,
     h1, h2, h3, h4, h5, h6,
-    header, footer, address, main
+    header, footer, address, main,
 
     p, hr, pre, blockquote, ol, ul, li,
     dl, dt, dd,
@@ -30,8 +30,25 @@ type
     kdb, sub, sup, italic = "i", bold = "b", underlined = "u",
     mark, ruby, rt, rp, bdi, dbo, span, br, wbr,
     ins, del, img, iframe, embed, `object` = "object",
-    param, video, audio, source, track, canvas, map,
-    area, svg, math,
+    param, video, audio, source, track, canvas, map, area,
+
+    # SVG elements
+    animate, animateMotion, animateTransform, circle, clipPath, defs, desc,
+    `discard` = "discard", ellipse, feBlend, feColorMatrix, feComponentTransfer,
+    feComposite, feConvolveMatrix, feDiffuseLighting, feDisplacementMap,
+    feDistantLight, feDropShadow, feFlood, feFuncA, feFuncB, feFuncG, feFuncR,
+    feGaussianBlur, feImage, feMerge, feMergeNode, feMorphology, feOffset,
+    fePointLight, feSpecularLighting, feSpotLight, feTile, feTurbulence,
+    filter, foreignObject, g, image, line, linearGradient, marker, mask,
+    metadata, mpath, path, pattern, polygon, polyline, radialGradient, rect,
+    `set` = "set", stop, svg, switch, symbol, stext = "text", textPath, tspan,
+    unknown, use, view,
+
+    # MathML elements
+    maction, math, menclose, merror, mfenced, mfrac, mglyph, mi, mlabeledtr,
+    mmultiscripts, mn, mo, mover, mpadded, mphantom, mroot, mrow, ms, mspace,
+    msqrt, mstyle, msub, msubsup, msup, mtable, mtd, mtext, mtr, munder,
+    munderover, semantics,
 
     table, caption, colgroup, col, tbody, thead,
     tfoot, tr, td, th,
@@ -42,13 +59,13 @@ type
     details, summary, command, menu
 
 type
-  EventKind* {.pure.} = enum ## The events supported by the virtual DOM.
+  EventKind* {.pure.} = enum ## The events supported by the DOM.
     onclick, ## An element is clicked.
     oncontextmenu, ## An element is right-clicked.
     ondblclick, ## An element is double clicked.
     onkeyup, ## A key was released.
     onkeydown, ## A key is pressed.
-    onkeypressed, # A key was pressed.
+    onkeypressed, ## A key was pressed.
     onfocus, ## An element got the focus.
     onblur, ## An element lost the focus.
     onchange, ## The selected value of an element was changed.
@@ -80,16 +97,27 @@ type
     onsubmit, ## A form is submitted
     oninput, ## An input value changes
 
-    onkeyupenter, ## vdom extension: an input field received the ENTER key press
-    onkeyuplater  ## vdom extension: a key was pressed and some time
-                  ## passed (useful for on-the-fly text completions)
+    onanimationstart,
+    onanimationend,
+    onanimationiteration,
 
+    onkeyupenter, ## vdom extension: an input field received the ENTER key press
+    onkeyuplater,  ## vdom extension: a key was pressed and some time
+                  ## passed (useful for on-the-fly text completions)
+    onload, ## img
+
+    ontransitioncancel,
+    ontransitionend,
+    ontransitionrun,
+    ontransitionstart,
+
+    onwheel ## fires when the user rotates a wheel button on a pointing device.
 
 macro buildLookupTables(): untyped =
   var a = newTree(nnkBracket)
   for i in low(Tag)..high(Tag):
     let x = $i
-    let y = if x[0] == '#': x else: toUpperAscii(x)
+    let y = if x[0] == '#': x else: toLowerAscii(x)
     a.add(newCall("kstring", newLit(y)))
   var e = newTree(nnkBracket)
   for i in low(EventKind)..high(EventKind):
@@ -313,195 +341,86 @@ macro buildStyleLookupTable(): untyped =
 
 buildStyleLookupTable()
 
-type
-  StyleObj {.importc.} = object
-    background*: cstring
-    backgroundAttachment*: cstring
-    backgroundColor*: cstring
-    backgroundImage*: cstring
-    backgroundPosition*: cstring
-    backgroundRepeat*: cstring
-    border*: cstring
-    borderBottom*: cstring
-    borderBottomColor*: cstring
-    borderBottomStyle*: cstring
-    borderBottomWidth*: cstring
-    borderColor*: cstring
-    borderLeft*: cstring
-    borderLeftColor*: cstring
-    borderLeftStyle*: cstring
-    borderLeftWidth*: cstring
-    borderRight*: cstring
-    borderRightColor*: cstring
-    borderRightStyle*: cstring
-    borderRightWidth*: cstring
-    borderStyle*: cstring
-    borderTop*: cstring
-    borderTopColor*: cstring
-    borderTopStyle*: cstring
-    borderTopWidth*: cstring
-    borderWidth*: cstring
-    bottom*: cstring
-    captionSide*: cstring
-    clear*: cstring
-    clip*: cstring
-    color*: cstring
-    cursor*: cstring
-    direction*: cstring
-    display*: cstring
-    emptyCells*: cstring
-    cssFloat*: cstring
-    font*: cstring
-    fontFamily*: cstring
-    fontSize*: cstring
-    fontStretch*: cstring
-    fontStyle*: cstring
-    fontVariant*: cstring
-    fontWeight*: cstring
-    height*: cstring
-    left*: cstring
-    letterSpacing*: cstring
-    lineHeight*: cstring
-    listStyle*: cstring
-    listStyleImage*: cstring
-    listStylePosition*: cstring
-    listStyleType*: cstring
-    margin*: cstring
-    marginBottom*: cstring
-    marginLeft*: cstring
-    marginRight*: cstring
-    marginTop*: cstring
-    maxHeight*: cstring
-    maxWidth*: cstring
-    minHeight*: cstring
-    minWidth*: cstring
-    overflow*: cstring
-    padding*: cstring
-    paddingBottom*: cstring
-    paddingLeft*: cstring
-    paddingRight*: cstring
-    paddingTop*: cstring
-    pageBreakAfter*: cstring
-    pageBreakBefore*: cstring
-    pointerEvents*: cstring
-    position*: cstring
-    right*: cstring
-    scrollbar3dLightColor*: cstring
-    scrollbarArrowColor*: cstring
-    scrollbarBaseColor*: cstring
-    scrollbarDarkshadowColor*: cstring
-    scrollbarFaceColor*: cstring
-    scrollbarHighlightColor*: cstring
-    scrollbarShadowColor*: cstring
-    scrollbarTrackColor*: cstring
-    tableLayout*: cstring
-    textAlign*: cstring
-    textDecoration*: cstring
-    textIndent*: cstring
-    textTransform*: cstring
-    transform*: cstring
-    top*: cstring
-    verticalAlign*: cstring
-    visibility*: cstring
-    width*: cstring
-    wordSpacing*: cstring
-    zIndex*: int
-  Style* = ref StyleObj
-
-  ElementObj {.importc.} = object
-    id*, class*, value*: cstring
-    disabled*: bool
-    style*: Style
-  Element* = ref ElementObj
-
-  DocumentObj {.importc.} = object
-  Document = ref DocumentObj
-
 proc setStyle(s: Style; key, val: cstring) {.importcpp: "#[#] = #", noSideEffect.}
 
 proc applyStyles*(e: Element; pairs: openArray[(StyleAttr, kstring)]) =
   for x in pairs:
     e.style.setStyle(toStyleAttrName[x[0]], x[1])
 
+# ------------------ Namespaces --------------------------------------
+
+type
+  Namespace* {.pure.} = enum
+    none, html, mathml, svg
+
+const
+  toNS*: array[Namespace, kstring] = [
+    Namespace.none: kstring"",
+    Namespace.html: kstring"http://www.w3.org/1999/xhtml",
+    Namespace.mathml: kstring"http://www.w3.org/1998/Math/MathML",
+    Namespace.svg: kstring"http://www.w3.org/2000/svg"
+  ]
+
+proc getNamespace*(s: kstring): Namespace =
+  # Use with element.namespaceURI
+  let i = find(toNS, s)
+  if i >= 0: result = Namespace(i)
+  else: result = Namespace.none
+
+proc getNamespace*(kind: Tag): Namespace =
+  case kind
+  of Tag.svg:
+    result = Namespace.svg
+  of Tag.math:
+    result = Namespace.mathml
+  else:
+    result = Namespace.none
+
+proc getChildNamespace*(parentNamespace: Namespace; kind: Tag): Namespace =
+  if parentNamespace in {Namespace.none, Namespace.html}:
+    result = getNamespace(kind)
+  elif parentNamespace == Namespace.svg and kind == Tag.foreignObject:
+    result = Namespace.html
+  else: result = parentNamespace
+
 # ------- Tree manipulation ---------------------------
 
-var document {.importc.}: Document
-
 proc parent*(x: Element): Element {.importcpp: "#.parentNode".}
-
 proc up*(x: Element; className: cstring): Element =
   result = x
   while result != nil and result.class != className:
     result = result.parent
-
-proc len*(x: Element): int {.importcpp: "#.childNodes.length".}
-proc `[]`*(x: Element; idx: int): Element {.importcpp: "#.childNodes[#]".}
-proc getElementById*(id: cstring): Element {.importc: "document.getElementById", nodecl.}
-proc add*(n, child: Element) {.importcpp: "appendChild".}
-
-proc removeChild(n, child: Element) {.importcpp.}
-proc replaceChild(n, newNode, oldNode: Element) {.importcpp.}
-
+proc add*(n, child: Node) {.importcpp: "appendChild".}
 proc replace*(self, by: Element) = replaceChild(self.parent, by, self)
 proc delete*(self: Element) = removeChild(self.parent, self)
-
-proc insertBefore(n, newNode, before: Element) {.importcpp.}
 proc insert*(before, newNode: Element) = insertBefore(before.parent, newNode, before)
-
-proc createTextNode(d: Document, text: cstring): Element {.importcpp.}
-proc text*(s: kstring): Element = createTextNode(document, s)
+proc text*(s: kstring): Node = createTextNode(document, s)
 
 iterator items*(n: Element): Element =
   for i in 0..<n.len: yield n[i]
 
-proc createElement(d: Document, identifier: cstring): Element {.importcpp.}
-proc setAttr*(n: Element; key, val: cstring) {.importcpp: "#.setAttribute(@)".}
+proc newNode*(ns: Namespace; kind: Tag): Element =
+  if ns in {Namespace.html, Namespace.none}:
+    result = createElement(document, toTagName[kind])
+  else:
+    result = createElementNS(document, toNS[ns], toTagName[kind])
 
-proc tree*(kind: Tag; kids: varargs[Element]): Element =
-  result = createElement(document, toTagName[kind])
-  for k in kids: result.add k
-
-proc tree*(kind: Tag; attrs: openarray[(kstring, kstring)];
-           kids: varargs[Element]): Element =
-  result = tree(kind, kids)
+proc newNode*(ns: Namespace; kind: Tag;
+              attrs: openarray[(kstring, kstring)]): Element =
+  result = newNode(ns, kind)
   for a in attrs: result.setAttr(a[0], a[1])
 
 # other arbitrary stuff belonging to Element
-proc focus*(e: Element) {.importcpp.}
-proc scrollIntoView*(e: Element) {.importcpp.}
-proc blur*(e: Element) {.importcpp.}
-
 proc toChecked*(checked: bool): cstring =
   (if checked: cstring"checked" else: cstring(nil))
 
 proc toDisabled*(disabled: bool): cstring =
   (if disabled: cstring"disabled" else: cstring(nil))
 
-# -------------- Timer handling --------------------
-
-type
-  Timeout* {.importc.} = ref object of RootObj
-
-proc setTimeout*(action: proc(); ms: int): Timeout {.importc, nodecl.}
-proc clearTimeout*(t: Timeout) {.importc, nodecl.}
-
 # -------------- Event handling --------------------
 
 type
-  EventObj {.importc.} = object
-    target*: Element
-    altKey*, ctrlKey*, metaKey*, shiftKey*: bool
-    code*: cstring
-    isComposing*: bool
-    key*: cstring
-    keyCode*: int
-    location*: int
-  Event* = ref EventObj
-
   EventHandler* = proc (ev: Event) {.closure.}
-
-proc addEventListener(e: Element, ev: cstring, cb: proc(ev: Event),
-  useCapture = false) {.importcpp.}
 
 proc addEventHandler*(e: Element; k: EventKind; action: EventHandler) =
   case k
@@ -519,7 +438,7 @@ proc addEventHandler*(e: Element; k: EventKind; action: EventHandler) =
     proc enterWrapper(): EventHandler =
       let action = action
       result = proc (ev: Event) =
-        if ev.keyCode == 13: action(ev)
+        if KeyboardEvent(ev).code == cstring"Enter": action(ev)
 
     e.addEventListener("keyup", enterWrapper())
   else:
@@ -533,8 +452,6 @@ proc prepareDragData*(ev: Event; datatype, data: cstring)
 
 proc recvDragData*(ev: Event; datatype: cstring): cstring
   {.importcpp: "#.dataTransfer.getData(@)".}
-
-proc preventDefault*(ev: Event) {.importcpp.}
 
 # ------------------ Init handling -----------------------------------
 
@@ -550,15 +467,15 @@ proc setInitializer*(initializer: proc (hashPart: kstring): Element;
   var hashPart {.importc: "window.location.hash".}: cstring
 
   setWindowOnload proc (ev: Event) =
-    replaceById root, initializer(hashPart)
+    replaceById initializer(hashPart), root
   onhashchange = proc () =
-    replaceById root, initializer(hashPart)
+    replaceById initializer(hashPart), root
 
 # ------------------ DSL section -------------------------------------
 
 const
   StmtContext = ["inc", "echo", "dec", "!"]
-  SpecialAttrs = ["id", "class", "value"]
+  SpecialAttrs = ["id", "value"]
 
 type
   ComponentKind {.pure.} = enum
@@ -582,17 +499,26 @@ proc addTags() {.compileTime.} =
 static:
   addTags()
 
-
 proc getName(n: NimNode): string =
   case n.kind
-  of nnkIdent:
-    result = $n.ident
+  of nnkIdent, nnkSym:
+    result = $n
   of nnkAccQuoted:
     result = ""
     for i in 0..<n.len:
       result.add getName(n[i])
   of nnkStrLit..nnkTripleStrLit:
     result = n.strVal
+  of nnkInfix:
+    # allow 'foo-bar' syntax:
+    if n.len == 3 and $n[0] == "-":
+      result = getName(n[1]) & "-" & getName(n[2])
+    else:
+      expectKind(n, nnkIdent)
+  of nnkDotExpr:
+    result = getName(n[0]) & "." & getName(n[1])
+  of nnkOpenSymChoice, nnkClosedSymChoice:
+    result = getName(n[0])
   else:
     #echo repr n
     expectKind(n, nnkIdent)
@@ -608,7 +534,7 @@ proc toKstring(n: NimNode): NimNode =
     for child in n:
       result.add toKstring(child)
 
-proc tcall2(n, tmpContext: NimNode): NimNode =
+proc tcall2(n, tmpContext, nsContext: NimNode): NimNode =
   # we need to distinguish statement and expression contexts:
   # every call statement 's' needs to be transformed to 'dest.add s'.
   # If expressions need to be distinguished from if statements. Since
@@ -636,19 +562,19 @@ proc tcall2(n, tmpContext: NimNode): NimNode =
     let L = n.len
     assert n.len == result.len
     if L > 0:
-      result[L-1] = tcall2(result[L-1], tmpContext)
+      result[L-1] = tcall2(result[L-1], tmpContext, nsContext)
   of nnkStmtList, nnkStmtListExpr, nnkWhenStmt, nnkIfStmt, nnkTryStmt,
      nnkFinally:
     # recurse for every child:
     result = copyNimNode(n)
     for x in n:
-      result.add tcall2(x, tmpContext)
+      result.add tcall2(x, tmpContext, nsContext)
   of nnkCaseStmt:
     # recurse for children, but don't add call for case ident
     result = copyNimNode(n)
     result.add n[0]
     for i in 1 ..< n.len:
-      result.add tcall2(n[i], tmpContext)
+      result.add tcall2(n[i], tmpContext, nsContext)
   of nnkProcDef:
     let name = getName n[0]
     if name.startsWith"on":
@@ -659,7 +585,7 @@ proc tcall2(n, tmpContext: NimNode): NimNode =
         error "no Element to attach the event handler to"
       else:
         result = newCall(evHandler(), tmpContext,
-                         newDotExpr(bindSym"EventKind", n[0]), anon, ident("kxi"))
+                         newDotExpr(bindSym"EventKind", n[0]), anon)
     else:
       result = n
   of nnkVarSection, nnkLetSection, nnkConstSection:
@@ -668,10 +594,18 @@ proc tcall2(n, tmpContext: NimNode): NimNode =
     let op = getName(n[0])
     if isComponent(op) == ComponentKind.Tag:
       let tmp = genSym(nskLet, "tmp")
-      let call = newCall(bindSym"tree", newDotExpr(bindSym"Tag", n[0]))
+      let ns = genSym(nskLet, "ns")
+      let parentNamespace =
+        if nsContext == nil: newDotExpr(bindSym"Namespace", ident"none")
+        else: nsContext
+      let call1 = newCall(bindSym"getChildNamespace", parentNamespace,
+                          newDotExpr(bindSym"Tag", n[0]))
+      let call2 = newCall(bindSym"newNode", ns,
+                          newDotExpr(bindSym"Tag", n[0]))
       result = newTree(
         if tmpContext == nil: nnkStmtListExpr else: nnkStmtList,
-        newLetStmt(tmp, call))
+        newLetStmt(ns, call1),
+        newLetStmt(tmp, call2))
       for i in 1 ..< n.len:
         # named parameters are transformed into attributes or events:
         let x = n[i]
@@ -691,7 +625,7 @@ proc tcall2(n, tmpContext: NimNode): NimNode =
         elif eqIdent(x, "setFocus"):
           result.add newCall(bindSym"focus", tmp)
         else:
-          result.add tcall2(x, tmp)
+          result.add tcall2(x, tmp, ns)
       if tmpContext == nil:
         result.add tmp
       else:
@@ -707,13 +641,13 @@ proc tcall2(n, tmpContext: NimNode): NimNode =
         result = newCall(bindSym"add", tmpContext, n)
       else:
         let tmp = genSym(nskLet, "tmp")
-        var slicedCall = newCall(n[0])
+        var slicedCall = newCall(n[0]) #todo support namespaces
         let ex = newTree(nnkStmtListExpr)
         ex.add newEmptyNode() # will become the let statement
         for i in 1..<n.len:
           let it = n[i]
           if it.kind in {nnkProcDef, nnkStmtList}:
-            ex.add tcall2(it, tmp)
+            ex.add tcall2(it, tmp, nil)
           else:
             slicedCall.add it
         ex[0] = newLetStmt(tmp, slicedCall)
@@ -735,18 +669,18 @@ macro buildHtml*(tag, children: untyped): Element =
   else:
     call = newCall(tag)
   call.add body(kids)
-  result = tcall2(call, nil)
+  result = tcall2(call, nil, nil)
   when defined(debugKaraxDsl):
     echo repr result
 
 macro buildHtml*(children: untyped): Element =
   let kids = newProc(procType=nnkDo, body=children)
   expectKind kids, nnkDo
-  result = tcall2(body(kids), nil)
+  result = tcall2(body(kids), nil, nil)
   when defined(debugKaraxDsl):
     echo repr result
 
 macro flatHtml*(tag: untyped): Element =
-  result = tcall2(tag, nil)
+  result = tcall2(tag, nil, nil)
   when defined(debugKaraxDsl):
     echo repr result
