@@ -152,7 +152,10 @@ proc getVNodeById*(id: cstring; kxi: KaraxInstance = kxi): VNode =
   if kxi.byId.contains(id):
     result = kxi.byId[id]
 
-proc toDom*(n: VNode; useAttachedNode: bool; kxi: KaraxInstance = nil): Node =
+let KnownNS = {"svg":"http://www.w3.org/2000/svg","math":"http://www.w3.org/1998/Math/MathML"}.toJDict()
+
+proc toDom*(n: VNode; useAttachedNode: bool; kxi: KaraxInstance = nil; ns = ""): Node =
+  var privNs = ns
   if useAttachedNode:
     if n.dom != nil:
       if n.id != nil: kxi.byId[n.id] = n
@@ -189,10 +192,20 @@ proc toDom*(n: VNode; useAttachedNode: bool; kxi: KaraxInstance = nil): Node =
     attach n
     return result
   else:
-    result = document.createElement(toTag[n.kind])
+    let tag = toTag[n.kind] # upper case
+    let tagName = $n.kind # lower case
+    if ns.len > 0:
+      result = document.createElementNS(ns.cstring, tagName.cstring)
+    else:
+      if tagName notin ["math","svg"]:
+        result = document.createElement(tag)
+      else: 
+        privNs = KnownNS[tagName]
+        result = document.createElementNS(privNs.cstring, tagName.cstring)
+        result.setAttr("xmlns", privNs)
     attach n
     for k in n:
-      appendChild(result, toDom(k, useAttachedNode, kxi))
+      appendChild(result, toDom(k, useAttachedNode, kxi, privNs))
     # text is mapped to 'value':
     if n.text != nil:
       result.value = n.text
@@ -219,7 +232,7 @@ proc same(n: VNode, e: Node; nesting = 0): bool =
   elif n.kind == VNodeKind.vthunk or n.kind == VNodeKind.dthunk:
     # we don't check these:
     result = true
-  elif toTag[n.kind] == e.nodename:
+  elif toTag[n.kind].cstring.toLowerCase == e.nodename.toLowerCase:
     result = true
     if n.kind != VNodeKind.text:
       # BUGFIX: Microsoft's Edge gives the textarea a child containing the text node!
@@ -737,18 +750,6 @@ proc setRenderer*(renderer: proc (): VNode, root: cstring = "ROOT",
     if clientPostRenderCallback != nil: clientPostRenderCallback()
   setRenderer(wrapRenderer, root, wrapPostRender)
 
-when not defined(js):
-  import parseopt
-  proc setRenderer*(renderer: proc (): VNode) =
-    var op = initOptParser()
-    var file = ""
-    while true:
-      op.next()
-      case op.kind
-      of cmdArgument: file = op.key
-      of cmdEnd: break
-      else: discard
-      writeFile file, $renderer()
 
 proc setInitializer*(renderer: proc (data: RouterData): VNode, root: cstring = "ROOT",
                     clientPostRenderCallback:
